@@ -1,0 +1,21 @@
+services:
+  nmda-crm-assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nmda-crm-assistant
+    restart: unless-stopped
+
+    ports:
+      - "8090:8090"
+
+    env_file:
+      - .env
+
+    environment:
+      # Dentro de Docker, localhost apunta al contenedor.
+      # Así llegamos al EspoCRM que corre en la máquina host.
+      ESPOCRM_URL: http://host.docker.internal:8080
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
