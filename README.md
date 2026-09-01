@@ -1,4 +1,4 @@
-# NMDA Sales Assistant v0.4
+# NMDA Sales Assistant v0.4.1
 
 ## Qué cambia
 
@@ -132,3 +132,13 @@ La v0.4 todavía NO:
 - mueve leads a Recycled.
 
 Eso queda para una siguiente versión una vez que validemos bien los First Emails con IA.
+
+
+## v0.4.1 — Formato y revisión del First Email
+
+- Ollama devuelve una lista de párrafos y el backend inserta dobles saltos de línea.
+- Se refuerza la revisión de ortografía, acentos, concordancia y puntuación.
+- Jimmy siempre se presenta como fundador de NMDA Solutions y desarrollador de NMDA Events.
+- Se prohíbe presentarlo como "asistente".
+- Se evitan frases robóticas como "nos complace" o "estaríamos encantados".
+- Se siguen evitando listas crudas del CRM y lenguaje de campaña masiva.

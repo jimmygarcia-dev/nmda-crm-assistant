@@ -36,7 +36,14 @@ class FirstEmailAIService:
         data = self.ollama.generate_json(prompt)
 
         subject = self._clean_text(data.get("subject"), max_chars=140)
-        body = self._clean_body(data.get("body"))
+
+        # Preferimos párrafos estructurados para evitar que el correo llegue
+        # como un solo bloque de texto. Mantenemos compatibilidad con "body".
+        paragraphs = data.get("paragraphs")
+        if isinstance(paragraphs, list):
+            body = self._build_body_from_paragraphs(paragraphs)
+        else:
+            body = self._clean_body(data.get("body"))
 
         if not subject:
             raise OllamaError("Ollama no generó un asunto utilizable.")
@@ -135,10 +142,10 @@ class FirstEmailAIService:
         context_json = self._jsonish(compact)
 
         return f"""
-Eres un asistente comercial de NMDA Events.
+Eres un redactor comercial para NMDA Events.
 
 Tu tarea es redactar el PRIMER correo de prospección para un lead B2B.
-El correo será revisado por una persona antes de enviarse.
+El correo será revisado por Jimmy García antes de enviarse.
 
 PRODUCTO
 NMDA Events es una plataforma para operación de eventos que puede cubrir:
@@ -150,35 +157,62 @@ NMDA Events es una plataforma para operación de eventos que puede cubrir:
 - experiencias interactivas,
 - métricas en tiempo real.
 
-OBJETIVO DEL CORREO
-No intentes cerrar una venta.
-Busca iniciar una conversación y entender cómo resuelve hoy la empresa
-la operación de asistentes y qué herramientas utiliza.
+OBJETIVO
+No intentes cerrar una venta. Busca iniciar una conversación y entender cómo
+resuelve hoy la empresa la operación de asistentes y qué herramientas utiliza.
 El CTA debe ser una demo o llamada breve de 15–20 minutos.
 
-REGLAS IMPORTANTES
-1. Escribe en español natural, profesional y humano.
-2. No suenes como plantilla ni como correo generado por IA.
-3. Usa máximo 1 o 2 observaciones relevantes del contexto.
-4. NO copies listas crudas de servicios ni texto separado por "|", comas o bullets.
-   Sintetiza y razona la información.
-5. No inventes clientes, cifras, cargos, dolores, procesos ni tecnología.
-6. La ausencia de información NO significa que la empresa no tenga una plataforma.
-7. Si el contexto indica que ya usan/desarrollan tecnología, plantea NMDA Events
-   como posible complemento, no como reemplazo.
-8. Si hay nombre de contacto confiable, saluda por su primer nombre.
-   Si no, usa "Hola equipo de {{empresa}},".
-9. Evita frases exageradas como "solución revolucionaria", "transformar su negocio",
-   "sé que necesitan", etc.
-10. Mantén el cuerpo aproximadamente entre 130 y 190 palabras.
-11. No uses markdown, viñetas ni HTML.
-12. Firma únicamente:
-Jimmy García
+VOZ DE JIMMY
+- Escribe siempre en primera persona singular.
+- Jimmy es fundador de NMDA Solutions y desarrollador de NMDA Events.
+- Nunca digas que Jimmy es "asistente", "representante comercial" o "parte del equipo".
+- Evita lenguaje corporativo genérico como "nos complace", "estaríamos encantados",
+  "queremos ofrecerle", "optimizar sus procesos", "solución innovadora" o similares.
+- Debe sonar como un correo escrito personalmente después de investigar la empresa.
 
-Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
+PERSONALIZACIÓN
+1. Usa solo 1 o 2 observaciones relevantes del contexto.
+2. Sintetiza la información: NO copies listas crudas de servicios, texto separado por
+   "|", enumeraciones del CRM ni párrafos completos del website text.
+3. No inventes clientes, cifras, cargos, dolores, procesos ni tecnología.
+4. La ausencia de información NO significa que la empresa no tenga una plataforma.
+5. Si el contexto indica que ya usa o desarrolla tecnología, plantea NMDA Events
+   como posible complemento, no como reemplazo.
+6. Si hay un primer nombre de contacto confiable, saluda por ese nombre.
+   Si no, usa: "Hola equipo de {{empresa}},".
+
+ORTOGRAFÍA Y ESTILO
+- Español natural de México, profesional y cercano.
+- Revisa ortografía, acentos, concordancia y puntuación antes de responder.
+- No uses anglicismos innecesarios salvo términos normales del sector.
+- No uses markdown, HTML, viñetas ni emojis.
+- Evita frases demasiado largas.
+- Aproximadamente 130–190 palabras.
+
+ESTRUCTURA OBLIGATORIA
+Devuelve el correo dividido en párrafos, NO como un solo bloque:
+1. Saludo.
+2. Presentación breve de Jimmy.
+3. Observación personalizada sobre la empresa.
+4. Qué es NMDA Events y por qué podría tener sentido.
+5. Pregunta de descubrimiento.
+6. CTA de 15–20 minutos.
+7. Cierre.
+8. Firma: Jimmy García.
+
+Devuelve EXCLUSIVAMENTE JSON válido:
 {{
-  "subject": "asunto corto y específico",
-  "body": "correo completo"
+  "subject": "asunto corto, natural y específico",
+  "paragraphs": [
+    "Hola equipo de Empresa,",
+    "Soy Jimmy García, fundador de NMDA Solutions y desarrollador de NMDA Events.",
+    "Párrafo personalizado.",
+    "Párrafo sobre NMDA Events.",
+    "Párrafo de descubrimiento.",
+    "¿Tendrían oportunidad de revisarlo en una llamada de 15–20 minutos?",
+    "Quedo atento.",
+    "Jimmy García"
+  ]
 }}
 
 CONTEXTO DEL LEAD
@@ -226,10 +260,32 @@ CONTEXTO DEL LEAD
         text = text.strip('"').strip()
         return text[:max_chars].strip()
 
+    def _build_body_from_paragraphs(self, paragraphs: list[Any]) -> str:
+        cleaned: list[str] = []
+        for value in paragraphs:
+            paragraph = self._clean_paragraph(value)
+            if paragraph:
+                cleaned.append(paragraph)
+        return "\n\n".join(cleaned).strip()
+
+    def _clean_paragraph(self, value: Any) -> str:
+        if value is None:
+            return ""
+        paragraph = str(value).strip()
+        paragraph = re.sub(r"^```(?:text)?\s*", "", paragraph, flags=re.I)
+        paragraph = re.sub(r"\s*```$", "", paragraph)
+        paragraph = re.sub(r"[ \t]+", " ", paragraph)
+        paragraph = re.sub(r"\s*\n\s*", " ", paragraph)
+        return paragraph.strip()
+
     def _clean_body(self, value: Any) -> str:
+        """Compatibilidad si el modelo aún regresa un único campo body."""
         if value is None:
             return ""
         body = str(value).strip()
         body = re.sub(r"^```(?:text)?\s*", "", body, flags=re.I)
         body = re.sub(r"\s*```$", "", body)
-        return body.strip()
+        raw_paragraphs = re.split(r"\n\s*\n+", body)
+        cleaned = [self._clean_paragraph(p) for p in raw_paragraphs]
+        cleaned = [p for p in cleaned if p]
+        return "\n\n".join(cleaned).strip()
