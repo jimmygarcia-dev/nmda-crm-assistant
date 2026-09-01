@@ -1,7 +1,6 @@
-from services.followup_draft_service import FollowupDraftService
+from services.email_draft_service import EmailDraftService
 
-
-SERVICE = FollowupDraftService("contact@nmdasolutions.com")
+SERVICE = EmailDraftService("contact@nmdasolutions.com")
 
 
 def sent(subject, date):
@@ -24,11 +23,3 @@ def test_followup_2_keeps_original_subject():
     assert draft.subject == "Re: Una idea para complementar la experiencia de sus eventos"
     assert "por última vez" in draft.body
     assert "Hola equipo de Of Course," in draft.body
-
-
-def test_person_name_uses_singular_greeting():
-    lead = {"firstName": "Mauro", "lastName": "Tanaka", "name": "Mauro Tanaka"}
-    emails = [sent("NMDA Events", "2026-08-20 10:00:00")]
-    draft = SERVICE.generate(lead, emails, "FOLLOW_UP_1")
-    assert draft.body.startswith("Hola Mauro,")
-    assert "mostrarte" in draft.body

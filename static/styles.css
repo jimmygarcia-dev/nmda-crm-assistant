@@ -123,3 +123,10 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   .topbar{align-items:flex-start;flex-direction:column}
   .detailGrid{grid-template-columns:1fr}
 }
+
+.draftMeta{
+  color:var(--green);
+  font-size:12px;
+  font-weight:800;
+  margin-bottom:12px;
+}

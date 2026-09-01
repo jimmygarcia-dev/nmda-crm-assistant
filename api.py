@@ -9,6 +9,8 @@ from flask import Flask, jsonify
 from services.espocrm import EspoCRMClient, EspoCRMError
 from services.followup_service import FollowupService
 from services.email_draft_service import EmailDraftService
+from services.ollama_client import OllamaClient, OllamaError
+from services.first_email_ai_service import FirstEmailAIService
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -28,6 +30,10 @@ LEAD_STATUSES = {
 }
 MAX_LEADS = int(os.getenv("MAX_LEADS", "200"))
 
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "180"))
+
 followups = FollowupService(
     our_email=OUR_EMAIL,
     followup_1_days=int(os.getenv("FOLLOWUP_1_AFTER_DAYS", "3")),
@@ -35,6 +41,12 @@ followups = FollowupService(
     recycle_days=int(os.getenv("RECYCLE_AFTER_DAYS", "3")),
 )
 drafts = EmailDraftService(OUR_EMAIL)
+ollama = OllamaClient(
+    base_url=OLLAMA_URL,
+    model=OLLAMA_MODEL,
+    timeout=OLLAMA_TIMEOUT,
+)
+first_email_ai = FirstEmailAIService(ollama)
 
 
 def crm() -> EspoCRMClient:
@@ -59,6 +71,7 @@ def health():
                 "ok": True,
                 "crmUrl": ESPOCRM_URL,
                 "ourEmail": OUR_EMAIL,
+                "ollamaModel": OLLAMA_MODEL,
                 "apiUser": data.get("user", {}).get("name")
                 if isinstance(data.get("user"), dict)
                 else None,
@@ -191,15 +204,27 @@ def email_draft(lead_id: str):
                 }
             ), 409
 
+        if decision.action == "FIRST_EMAIL":
+            draft = first_email_ai.generate(lead)
+            return jsonify(
+                {
+                    "draft": draft.to_dict(),
+                    "decision": decision.to_dict(),
+                    "generatedBy": "ollama",
+                    "model": OLLAMA_MODEL,
+                }
+            )
+
         draft = drafts.generate(lead, emails, decision.action)
 
         return jsonify(
             {
                 "draft": draft.to_dict(),
                 "decision": decision.to_dict(),
+                "generatedBy": "template",
             }
         )
-    except (EspoCRMError, ValueError) as exc:
+    except (EspoCRMError, OllamaError, ValueError) as exc:
         return jsonify({"error": str(exc)}), 502
 
 
@@ -211,4 +236,4 @@ def followup_draft_compat(lead_id: str):
 
 if __name__ == "__main__":
     # 0.0.0.0 es necesario para poder exponer Flask desde Docker.
-    app.run(host="0.0.0.0", port=8090, debug=True)
+    app.run(host="0.0.0.0", port=8090, debug=False)

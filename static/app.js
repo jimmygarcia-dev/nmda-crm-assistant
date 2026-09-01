@@ -129,12 +129,13 @@ async function openDetail(id) {
         <strong>${d.next_action_at ? fmt(d.next_action_at) : (d.due ? "Ahora" : "—")}</strong>
 
         <div class="actionButtons">
-          ${canDraft ? `<button class="primary" id="generateDraft" data-id="${lead.id}">${isFirstEmail ? "Regenerar First Email" : "Generar texto de seguimiento"}</button>` : ""}
+          ${canDraft ? `<button class="primary" id="generateDraft" data-id="${lead.id}">${isFirstEmail ? "Generar First Email con IA" : "Generar texto de seguimiento"}</button>` : ""}
           <a class="crmLink" href="${data.crmUrl}" target="_blank" rel="noreferrer">Abrir en EspoCRM ↗</a>
         </div>
       </div>
 
       <div id="draftBox" class="draftBox hidden">
+        <div id="draftMeta" class="draftMeta"></div>
         <div class="draftLabel">Asunto</div>
         <input id="draftSubject" class="draftSubject" type="text">
 
@@ -160,21 +161,18 @@ async function openDetail(id) {
     `;
 
     if (canDraft) {
-      $("generateDraft").addEventListener("click", () => generateDraft(lead.id));
-      if (isFirstEmail) {
-        generateDraft(lead.id, true);
-      }
+      $("generateDraft").addEventListener("click", () => generateDraft(lead.id, isFirstEmail));
     }
   } catch (err) {
     $("detailContent").innerHTML = `<div class="errorBox">${escapeHtml(err.message)}</div>`;
   }
 }
 
-async function generateDraft(id, automatic = false) {
+async function generateDraft(id, useAI = false) {
   const button = $("generateDraft");
   const original = button.textContent;
   button.disabled = true;
-  button.textContent = automatic ? "Preparando First Email…" : "Generando…";
+  button.textContent = useAI ? "Generando con Ollama…" : "Generando…";
 
   try {
     const res = await fetch(`/api/leads/${id}/email-draft`);
@@ -183,6 +181,14 @@ async function generateDraft(id, automatic = false) {
 
     $("draftSubject").value = data.draft.subject || "";
     $("draftBody").value = data.draft.body || "";
+
+    const meta = $("draftMeta");
+    if (meta) {
+      meta.textContent = data.generatedBy === "ollama"
+        ? `Generado con Ollama · ${data.model || data.draft.model || ""}`
+        : "Borrador de seguimiento";
+    }
+
     $("draftBox").classList.remove("hidden");
 
     $("copyDraft").onclick = () => copyText($("draftBody").value, "Texto copiado");
