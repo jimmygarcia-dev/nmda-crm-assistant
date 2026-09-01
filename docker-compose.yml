@@ -13,8 +13,6 @@ services:
       - .env
 
     environment:
-      # Dentro de Docker, localhost apunta al contenedor.
-      # Así llegamos al EspoCRM que corre en la máquina host.
       ESPOCRM_URL: http://host.docker.internal:8080
 
     extra_hosts:

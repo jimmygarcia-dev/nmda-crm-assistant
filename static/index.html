@@ -1,110 +1,71 @@
 <!doctype html>
 <html lang="es">
-
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>NMDA Sales Assistant</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
-
 <body>
+<header class="topbar">
+  <div>
+    <p class="eyebrow">NMDA EVENTS</p>
+    <h1>Sales Assistant</h1>
+    <p class="subtitle">Seguimiento comercial</p>
+  </div>
+  <div id="connection" class="connection">Conectando…</div>
+</header>
 
-  <header class="topbar">
-    <div>
-      <p class="eyebrow">NMDA EVENTS</p>
-      <h1>Sales Assistant</h1>
-      <p class="subtitle">Seguimiento comercial</p>
+<main>
+  <section class="summary">
+    <article><strong id="countDue">—</strong><span>Acciones hoy</span></article>
+    <article><strong id="countF1">—</strong><span>Follow-up #1</span></article>
+    <article><strong id="countF2">—</strong><span>Follow-up #2</span></article>
+    <article><strong id="countRecycle">—</strong><span>Listos para Recycled</span></article>
+    <article><strong id="countReplies">—</strong><span>Con respuesta</span></article>
+  </section>
+
+  <section class="toolbar">
+    <input id="search" type="search" placeholder="Buscar lead o correo…">
+    <select id="filter">
+      <option value="ALL">Todas las acciones</option>
+      <option value="DUE">Solo lo que toca hoy</option>
+      <option value="FIRST_EMAIL">First Email</option>
+      <option value="FOLLOW_UP_1">Follow-up #1</option>
+      <option value="FOLLOW_UP_2">Follow-up #2</option>
+      <option value="RECYCLE">Recycled</option>
+      <option value="REVIEW_RESPONSE">Respuestas</option>
+    </select>
+    <button id="refresh">Actualizar</button>
+  </section>
+
+  <section class="panel">
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Lead</th>
+            <th>Estado</th>
+            <th>Emails</th>
+            <th>Último contacto</th>
+            <th>Próxima acción</th>
+            <th>Fecha</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="leadRows">
+          <tr><td colspan="7" class="loading">Leyendo EspoCRM…</td></tr>
+        </tbody>
+      </table>
     </div>
+  </section>
+</main>
 
-    <div id="connection" class="connection">
-      Conectando…
-    </div>
-  </header>
+<dialog id="detailDialog">
+  <button class="dialogClose" id="dialogClose" aria-label="Cerrar">×</button>
+  <div id="detailContent"></div>
+</dialog>
 
-  <main>
-
-    <section class="summary">
-      <article>
-        <strong id="countDue">—</strong>
-        <span>Acciones hoy</span>
-      </article>
-
-      <article>
-        <strong id="countF1">—</strong>
-        <span>Follow-up #1</span>
-      </article>
-
-      <article>
-        <strong id="countF2">—</strong>
-        <span>Follow-up #2</span>
-      </article>
-
-      <article>
-        <strong id="countRecycle">—</strong>
-        <span>Listos para Recycled</span>
-      </article>
-
-      <article>
-        <strong id="countReplies">—</strong>
-        <span>Con respuesta</span>
-      </article>
-    </section>
-
-    <section class="toolbar">
-      <input id="search" type="search" placeholder="Buscar lead o correo…">
-
-      <select id="filter">
-        <option value="ALL">Todas las acciones</option>
-        <option value="DUE">Solo lo que toca hoy</option>
-        <option value="FIRST_EMAIL">First Email</option>
-        <option value="FOLLOW_UP_1">Follow-up #1</option>
-        <option value="FOLLOW_UP_2">Follow-up #2</option>
-        <option value="RECYCLE">Recycled</option>
-        <option value="REVIEW_RESPONSE">Respuestas</option>
-      </select>
-
-      <button id="refresh">Actualizar</button>
-    </section>
-
-    <section class="panel">
-      <div class="tableWrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Lead</th>
-              <th>Estado</th>
-              <th>Emails</th>
-              <th>Último contacto</th>
-              <th>Próxima acción</th>
-              <th>Fecha</th>
-              <th></th>
-            </tr>
-          </thead>
-
-          <tbody id="leadRows">
-            <tr>
-              <td colspan="7" class="loading">
-                Leyendo EspoCRM…
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-  </main>
-
-  <dialog id="detailDialog">
-    <button class="dialogClose" id="dialogClose" aria-label="Cerrar">
-      ×
-    </button>
-
-    <div id="detailContent"></div>
-  </dialog>
-
-  <script src="/app.js"></script>
-
+<script src="/app.js"></script>
 </body>
-
 </html>

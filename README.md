@@ -1,94 +1,70 @@
-# NMDA Sales Assistant v0.1
+# NMDA Sales Assistant v0.3
 
-MVP **read-only** para quitar el trabajo administrativo del seguimiento de NMDA Events.
+## Qué cambia
 
-## Qué hace
-- Se conecta a EspoCRM mediante REST API.
-- Lee Leads `Assigned` / `In Process`.
-- Lee emails y tareas relacionados.
-- Recomienda: First Email, Follow-up #1, Follow-up #2, Recycled o Revisar respuesta.
-- Usa días hábiles para calcular fechas.
-- Abre el Lead original en EspoCRM.
-- **No modifica EspoCRM y no envía correos.**
+La v0.3 agrega el **First Email** al flujo semi-automatizado.
 
-## Regla v0.1
+Cuando un lead tiene **0 emails enviados** y la siguiente acción es `First Email`:
+
+1. Abres el lead.
+2. El Sales Assistant prepara automáticamente un borrador.
+3. Usa datos que ya existen en EspoCRM, cuando están disponibles:
+   - empresa,
+   - nombre del contacto,
+   - servicios,
+   - descripción,
+   - industria.
+4. Puedes editar el asunto y el cuerpo.
+5. Copias el texto.
+6. Tú sigues enviando manualmente.
+
+También conserva:
+- Follow-up #1
+- Follow-up #2
+- detección de respuestas
+- recomendación de Recycled
+- acceso directo al Lead en EspoCRM
+
+## Importante
+
+El First Email de esta versión **no usa Ollama todavía**.
+
+Es un borrador determinista basado en los datos enriquecidos que ya están guardados
+en EspoCRM. Su objetivo es quitarte la hoja en blanco, no reemplazar la investigación.
+
+Si un lead es importante, conviene revisar el sitio/LinkedIn y ajustar el primer párrafo
+antes de enviarlo.
+
+## Filosofía
+
 ```text
-0 emails  → First Email
-1 email   → Follow-up #1
-2 emails  → Follow-up #2
-3+ emails → esperar y luego Recycled
-respuesta → STOP / revisión humana
+CRM sabe qué toca
+        ↓
+Sales Assistant prepara el borrador
+        ↓
+Jimmy revisa / personaliza
+        ↓
+Jimmy envía
 ```
 
-## 1. API User en EspoCRM
-1. `Administration > Roles`.
-2. Crea `NMDA Sales Assistant Read Only`.
-3. Da acceso **Read** a Lead, Email y Task.
-4. `Administration > API Users`.
-5. Crea un API User con autenticación **API Key** y asigna ese role.
-6. Copia la API Key.
+Nada se envía automáticamente.
 
-EspoCRM usa `/api/v1/` y el header `X-Api-Key`.
+## Docker
 
-## 2. Configurar
+Conserva tu `.env`.
+
 ```bash
-cp .env.example .env
-```
-Edita `.env`:
-```env
-ESPOCRM_URL=http://localhost:8080
-ESPOCRM_API_KEY=TU_API_KEY
-OUR_EMAIL=contact@nmdasolutions.com
+docker compose down
+docker compose up -d --build
 ```
 
-## 3. Instalar
-```bash
-python -m venv .venv
-```
-Git Bash:
-```bash
-source .venv/Scripts/activate
-```
-PowerShell:
-```powershell
-.venv\Scripts\Activate.ps1
-```
-Después:
-```bash
-pip install -r requirements.txt
-```
+Abrir:
 
-## 4. Ejecutar
-```bash
-python api.py
-```
-Abre:
 ```text
 http://localhost:8090
 ```
-Tu EspoCRM puede seguir en `http://localhost:8080`.
 
-## 5. Validación obligatoria
-Antes de confiar en el dashboard compara manualmente 5 leads:
-- solo First Email;
-- First Email + Follow-up #1;
-- tres correos;
-- uno con respuesta;
-- uno sin emails.
+## Siguiente evolución posible
 
-## Relaciones
-EspoCRM permite `GET /api/v1/Lead/{id}/{link}`. Esperamos links `emails` y `tasks`. Si tu instancia usa nombres distintos, cambia en `.env`:
-```env
-ESPOCRM_EMAIL_LINK=emails
-ESPOCRM_TASK_LINK=tasks
-```
-Confírmalos en `Administration > Entity Manager > Lead > Relationships`.
-
-## No hacemos todavía
-- enviar emails;
-- crear tareas;
-- cambiar status;
-- generar First Email automáticamente;
-- importar CSV.
-
-Primero queremos resolver bien una sola pregunta: **¿qué acción de seguimiento corresponde hoy a cada lead?**
+Una futura versión puede usar Ollama **solo para redactar** el First Email o follow-ups,
+mientras la decisión de qué acción corresponde sigue siendo determinista.
