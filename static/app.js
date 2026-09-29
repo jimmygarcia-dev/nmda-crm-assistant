@@ -9,6 +9,37 @@ const fmt = value => {
     : new Intl.DateTimeFormat("es-MX", { dateStyle: "medium" }).format(d);
 };
 
+function showToast(message, type = "success") {
+  let container = $("toastContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toastContainer";
+    container.style.cssText = "position:fixed;top:16px;right:16px;z-index:2147483647;display:flex;flex-direction:column;gap:8px;pointer-events:none;";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  toast.style.cssText = `
+    background:${type === "error" ? "#dc2626" : "#16a34a"};
+    color:white;padding:12px 16px;border-radius:8px;
+    box-shadow:0 4px 12px rgba(0,0,0,.15);
+    font-size:14px;max-width:360px;pointer-events:auto;
+    animation:slideIn .2s ease-out;
+  `;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = "slideOut .2s ease-in forwards";
+    toast.addEventListener("animationend", () => toast.remove());
+  }, 3500);
+}
+
+const style = document.createElement("style");
+style.textContent = `
+@keyframes slideIn { from { opacity:0; transform:translateX(100%); } to { opacity:1; transform:translateX(0); } }
+@keyframes slideOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(100%); } }
+`;
+document.head.appendChild(style);
+
 function badge(action, label) {
   const cls = {
     FIRST_EMAIL: "first",
@@ -101,6 +132,7 @@ async function openDetail(id) {
   const dialog = $("detailDialog");
   $("detailContent").innerHTML = `<div class="loading">Leyendo historial…</div>`;
   dialog.showModal();
+  moveToastContainerToDialog(dialog);
 
   try {
     const res = await fetch(`/api/leads/${id}`);
@@ -110,6 +142,7 @@ async function openDetail(id) {
     const lead = data.lead;
     const d = data.decision;
     const canDraft = ["FIRST_EMAIL", "FOLLOW_UP_1", "FOLLOW_UP_2"].includes(d.action);
+    const canTask = ["FOLLOW_UP_1", "FOLLOW_UP_2"].includes(d.action);
     const isFirstEmail = d.action === "FIRST_EMAIL";
 
     $("detailContent").innerHTML = `
@@ -130,8 +163,10 @@ async function openDetail(id) {
 
         <div class="actionButtons">
           ${canDraft ? `<button class="primary" id="generateDraft" data-id="${lead.id}">${isFirstEmail ? "Generar First Email con IA" : "Generar texto de seguimiento"}</button>` : ""}
+          ${canTask ? `<button class="secondary" id="createTask" data-id="${lead.id}">Crear tarea del siguiente paso</button>` : ""}
           <a class="crmLink" href="${data.crmUrl}" target="_blank" rel="noreferrer">Abrir en EspoCRM ↗</a>
         </div>
+        <div id="taskResult" class="taskResult"></div>
       </div>
 
       <div id="draftBox" class="draftBox hidden">
@@ -162,6 +197,9 @@ async function openDetail(id) {
 
     if (canDraft) {
       $("generateDraft").addEventListener("click", () => generateDraft(lead.id, isFirstEmail));
+    }
+    if (canTask) {
+      $("createTask").addEventListener("click", () => createFollowupTask(lead.id));
     }
   } catch (err) {
     $("detailContent").innerHTML = `<div class="errorBox">${escapeHtml(err.message)}</div>`;
@@ -195,8 +233,47 @@ async function generateDraft(id, useAI = false) {
     $("copySubject").onclick = () => copyText($("draftSubject").value, "Asunto copiado");
 
     $("draftBody").focus();
+    showToast(useAI ? "✅ First Email generado con IA" : "✅ Texto de seguimiento generado");
   } catch (err) {
+    showToast(`❌ ${err.message}`, "error");
     alert(err.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
+}
+
+async function createFollowupTask(id) {
+  const button = $("createTask");
+  const result = $("taskResult");
+  if (!button || !result) return;
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Creando tarea en EspoCRM…";
+  result.textContent = "";
+
+  try {
+    const res = await fetch(`/api/leads/${id}/followup-task`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "No se pudo crear la tarea");
+
+    if (data.created) {
+      const due = fmt(data.task?.dateEnd);
+      result.innerHTML = `<div class="taskResultOk">
+        Tarea creada: <strong>${escapeHtml(data.task?.name || "")}</strong><br>
+        Vencimiento: <strong>${due}</strong> ·
+        <a href="${data.crmTaskUrl}" target="_blank" rel="noreferrer">Ver en EspoCRM ↗</a>
+      </div>`;
+      showToast(`✅ Tarea creada: ${data.task?.name} — vence ${due}`);
+    } else if (data.already) {
+      result.innerHTML = `<div class="taskResultOk taskResultAlready">${escapeHtml(data.message || "Tarea ya existente.")}</div>`;
+      showToast("ℹ️ La tarea ya existía, no se duplicó.");
+    }
+
+    openDetail(id);
+  } catch (err) {
+    result.innerHTML = `<div class="errorBox">${escapeHtml(err.message)}</div>`;
+    showToast(`❌ ${err.message}`, "error");
   } finally {
     button.disabled = false;
     button.textContent = original;
@@ -234,7 +311,34 @@ function escapeHtml(value) {
 $("search").addEventListener("input", render);
 $("filter").addEventListener("change", render);
 $("refresh").addEventListener("click", load);
-$("dialogClose").addEventListener("click", () => $("detailDialog").close());
+function moveToastContainerToDialog(dialog) {
+  const container = $("toastContainer");
+  if (container && container.parentElement !== dialog) {
+    dialog.appendChild(container);
+    container.style.position = "fixed";
+    container.style.top = "16px";
+    container.style.right = "16px";
+    container.style.zIndex = "2147483647";
+  }
+}
+
+function moveToastContainerToBody() {
+  const container = $("toastContainer");
+  if (container && container.parentElement !== document.body) {
+    document.body.appendChild(container);
+    container.style.position = "fixed";
+    container.style.top = "16px";
+    container.style.right = "16px";
+    container.style.zIndex = "2147483647";
+  }
+}
+
+$("dialogClose").addEventListener("click", () => {
+  const dialog = $("detailDialog");
+  dialog.close();
+  moveToastContainerToBody();
+});
+$("detailDialog").addEventListener("close", moveToastContainerToBody);
 
 health();
 load();

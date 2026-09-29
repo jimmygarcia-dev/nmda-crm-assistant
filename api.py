@@ -11,6 +11,7 @@ from services.followup_service import FollowupService
 from services.email_draft_service import EmailDraftService
 from services.ollama_client import OllamaClient, OllamaError
 from services.first_email_ai_service import FirstEmailAIService
+from services.task_service import TaskPlanner, has_planned_task
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -47,6 +48,10 @@ ollama = OllamaClient(
     timeout=OLLAMA_TIMEOUT,
 )
 first_email_ai = FirstEmailAIService(ollama)
+planner = TaskPlanner(
+    followup_2_days=int(os.getenv("FOLLOWUP_2_AFTER_DAYS", "3")),
+    recycle_days=int(os.getenv("RECYCLE_AFTER_DAYS", "3")),
+)
 
 
 def crm() -> EspoCRMClient:
@@ -225,6 +230,74 @@ def email_draft(lead_id: str):
             }
         )
     except (EspoCRMError, OllamaError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+@app.post("/api/leads/<lead_id>/followup-task")
+def followup_task(lead_id: str):
+    """
+    Crea la TAREA del siguiente paso de un Follow-up en EspoCRM (con vencimiento
+    a N días hábiles, sin contar fines de semana). No envía correos.
+    Idempotente: si ya existe una tarea abierta con el mismo nombre, la devuelve.
+    """
+    try:
+        client = crm()
+        lead = client.get_lead(lead_id)
+        emails = client.lead_emails(lead_id, EMAIL_LINK)
+        tasks = client.lead_tasks(lead_id, TASK_LINK)
+        decision = followups.decide(lead, emails)
+
+        if decision.action not in {"FOLLOW_UP_1", "FOLLOW_UP_2"}:
+            return jsonify(
+                {
+                    "error": (
+                        f"La siguiente acción es '{decision.label}'. "
+                        "Solo creamos tareas para Follow-up #1 o #2."
+                    ),
+                    "decision": decision.to_dict(),
+                }
+            ), 409
+
+        planned = planner.plan(decision.action)
+
+        if has_planned_task(tasks, planned.name):
+            return jsonify(
+                {
+                    "already": True,
+                    "planned": planned.to_dict(),
+                    "decision": decision.to_dict(),
+                    "message": f"Task already exists for '{planned.name}'.",
+                }
+            )
+
+        created = client.create_task(
+            name=planned.name,
+            status="Not Started",
+            date_start=planned.date_start.strftime("%Y-%m-%d %H:%M:%S"),
+            date_end=planned.date_end.strftime("%Y-%m-%d %H:%M:%S"),
+            description=(
+                f"Next step for lead '{lead.get('name') or lead_id}'. "
+                "Created by NMDA CRM Assistant."
+            ),
+            parent_id=lead_id,
+        )
+
+        return jsonify(
+            {
+                "created": True,
+                "task": {
+                    "id": created.get("id"),
+                    "name": created.get("name"),
+                    "dateStart": created.get("dateStart"),
+                    "dateEnd": created.get("dateEnd"),
+                    "status": created.get("status"),
+                },
+                "planned": planned.to_dict(),
+                "decision": decision.to_dict(),
+                "crmTaskUrl": f"{ESPOCRM_URL}/#Task/view/{created.get('id')}",
+            }
+        ), 201
+    except (EspoCRMError, ValueError) as exc:
         return jsonify({"error": str(exc)}), 502
 
 
