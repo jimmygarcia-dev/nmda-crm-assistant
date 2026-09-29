@@ -150,7 +150,7 @@ Al pulsarlo:
    - `dateStart`: ahora; `dateEnd`: vencimiento a las 18:00.
    - `status`: "Not Started".
    - `parentType`: "Lead", `parentId`: el lead.
-   - `assignedUserId`: opcional (`ESPOCRM_ASSIGNED_USER` en `.env`).
+   - `assignedUserId`: si se define `ESPOCRM_ASSIGNED_USER` en `.env`, se usa ese; **si no, se resuelve automáticamente al usuario dueño de la API key** (obligatorio en EspoCRM).
 4. Idempotente: si ya existe una Task abierta con el mismo nombre, la devuelve sin duplicar.
 5. Devuelve el enlace a la Task en EspoCRM.
 
@@ -159,7 +159,8 @@ Al pulsarlo:
 **Configuración en `.env`:**
 
 ```env
-# Usuario asignado a las tareas creadas (opcional; ID de usuario EspoCRM)
+# Usuario asignado a las tareas creadas (opcional; ID de usuario EspoCRM).
+# Si se omite, se usa automáticamente el usuario dueño de la API key.
 ESPOCRM_ASSIGNED_USER=
 
 # Días hábiles para FU1 (usado al crear Task desde Follow-up #1)
