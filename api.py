@@ -266,7 +266,7 @@ def followup_task(lead_id: str):
                     "already": True,
                     "planned": planned.to_dict(),
                     "decision": decision.to_dict(),
-                    "message": f"Ya existe una tarea abierta para '{planned.name}'.",
+                    "message": f"Task already exists for '{planned.name}'.",
                 }
             )
 
@@ -276,8 +276,8 @@ def followup_task(lead_id: str):
             date_start=planned.date_start.strftime("%Y-%m-%d %H:%M:%S"),
             date_end=planned.date_end.strftime("%Y-%m-%d %H:%M:%S"),
             description=(
-                f"Siguiente paso para el lead '{lead.get('name') or lead_id}'. "
-                "Creada por NMDA CRM Assistant."
+                f"Next step for lead '{lead.get('name') or lead_id}'. "
+                "Created by NMDA CRM Assistant."
             ),
             parent_id=lead_id,
         )

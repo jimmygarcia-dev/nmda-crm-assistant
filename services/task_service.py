@@ -8,7 +8,7 @@ from services.followup_service import add_business_days
 
 @dataclass(frozen=True)
 class PlannedTask:
-    """Tarea planificada para el siguiente paso de un lead."""
+    """Planned task for the next step of a lead."""
 
     name: str
     date_start: datetime
@@ -26,19 +26,24 @@ class PlannedTask:
         }
 
 
-_NEXT_TASK = {
-    # Enviar el correo de Follow-up #1 => tarea para preparar/enviar Follow-up #2.
-    "FOLLOW_UP_1": ("Enviar Follow-up #2", "FOLLOW_UP_2"),
-    # Enviar el correo de Follow-up #2 => última etapa: revisar respuesta o reciclaje.
-    "FOLLOW_UP_2": ("Revisar respuesta o reciclaje", "RECYCLE"),
+_NEXT_TASK_LABEL = {
+    "FOLLOW_UP_1": "FOLLOW_UP_2",
+    "FOLLOW_UP_2": "RECYCLE",
 }
 
 
-class TaskPlanner:
-    """Genera la tarea del siguiente paso (vencimiento a N días hábiles).
+def _format_task_name(action: str, due: datetime) -> str:
+    """Format: 'Follow up #1 DD-MM' or 'Follow up #2 DD-MM'."""
+    num = "1" if action == "FOLLOW_UP_1" else "2"
+    dd_mm = due.strftime("%d-%m")
+    return f"Follow up #{num} {dd_mm}"
 
-    Los días hábiles no cuentan sábados ni domingos (add_business_days).
-    Solo planifica para Follow-up #1 y Follow-up #2.
+
+class TaskPlanner:
+    """Generates the next-step task (due in N business days).
+
+    Business days skip weekends (add_business_days).
+    Only plans for Follow-up #1 and Follow-up #2.
     """
 
     def __init__(self, followup_2_days: int = 3, recycle_days: int = 3):
@@ -52,13 +57,12 @@ class TaskPlanner:
     ) -> PlannedTask:
         now = now or datetime.now()
 
-        if action not in _NEXT_TASK:
+        if action not in _NEXT_TASK_LABEL:
             raise ValueError(
-                "Solo se planifica una tarea para Follow-up #1 o Follow-up #2."
+                "Only Follow-up #1 or Follow-up #2 can be planned."
             )
 
-        name = _NEXT_TASK[action][0]
-        label = _NEXT_TASK[action][1]
+        label = _NEXT_TASK_LABEL[action]
 
         if action == "FOLLOW_UP_1":
             days = self.followup_2_days
@@ -70,9 +74,9 @@ class TaskPlanner:
             hour=18, minute=0, second=0, microsecond=0
         )
 
-        # add_business_days salta sábados y domingos (solo cuenta weekday() < 5):
-        # si la fecha original cae de madrugada o fin de semana, el vencimiento
-        # terminó igual en un día hábil. OK.
+        # add_business_days skips weekends (weekday() < 5):
+        # if the start date falls on a weekend, the due date still lands on a business day.
+        name = _format_task_name(action, due)
         return PlannedTask(
             name=name,
             date_start=start,
@@ -91,7 +95,7 @@ def is_open_task(task: dict) -> bool:
 
 
 def has_planned_task(tasks: list[dict], name: str) -> bool:
-    """Idempotencia: ¿ya existe una tarea abierta con ese nombre?"""
+    """Idempotency: does an open task with this name already exist?"""
     for task in tasks:
         if not is_open_task(task):
             continue
