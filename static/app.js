@@ -110,6 +110,7 @@ async function openDetail(id) {
     const lead = data.lead;
     const d = data.decision;
     const canDraft = ["FIRST_EMAIL", "FOLLOW_UP_1", "FOLLOW_UP_2"].includes(d.action);
+    const canTask = ["FOLLOW_UP_1", "FOLLOW_UP_2"].includes(d.action);
     const isFirstEmail = d.action === "FIRST_EMAIL";
 
     $("detailContent").innerHTML = `
@@ -130,8 +131,10 @@ async function openDetail(id) {
 
         <div class="actionButtons">
           ${canDraft ? `<button class="primary" id="generateDraft" data-id="${lead.id}">${isFirstEmail ? "Generar First Email con IA" : "Generar texto de seguimiento"}</button>` : ""}
+          ${canTask ? `<button class="secondary" id="createTask" data-id="${lead.id}">Crear tarea del siguiente paso</button>` : ""}
           <a class="crmLink" href="${data.crmUrl}" target="_blank" rel="noreferrer">Abrir en EspoCRM ↗</a>
         </div>
+        <div id="taskResult" class="taskResult"></div>
       </div>
 
       <div id="draftBox" class="draftBox hidden">
@@ -162,6 +165,9 @@ async function openDetail(id) {
 
     if (canDraft) {
       $("generateDraft").addEventListener("click", () => generateDraft(lead.id, isFirstEmail));
+    }
+    if (canTask) {
+      $("createTask").addEventListener("click", () => createFollowupTask(lead.id));
     }
   } catch (err) {
     $("detailContent").innerHTML = `<div class="errorBox">${escapeHtml(err.message)}</div>`;
@@ -197,6 +203,40 @@ async function generateDraft(id, useAI = false) {
     $("draftBody").focus();
   } catch (err) {
     alert(err.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
+}
+
+async function createFollowupTask(id) {
+  const button = $("createTask");
+  const result = $("taskResult");
+  if (!button || !result) return;
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Creando tarea en EspoCRM…";
+  result.textContent = "";
+
+  try {
+    const res = await fetch(`/api/leads/${id}/followup-task`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "No se pudo crear la tarea");
+
+    if (data.created) {
+      const due = fmt(data.task?.dateEnd);
+      result.innerHTML = `<div class="taskResultOk">
+        Tarea creada: <strong>${escapeHtml(data.task?.name || "")}</strong><br>
+        Vencimiento: <strong>${due}</strong> ·
+        <a href="${data.crmTaskUrl}" target="_blank" rel="noreferrer">Ver en EspoCRM ↗</a>
+      </div>`;
+    } else if (data.already) {
+      result.innerHTML = `<div class="taskResultOk taskResultAlready">${escapeHtml(data.message || "Tarea ya existente.")}</div>`;
+    }
+
+    openDetail(id);
+  } catch (err) {
+    result.innerHTML = `<div class="errorBox">${escapeHtml(err.message)}</div>`;
   } finally {
     button.disabled = false;
     button.textContent = original;

@@ -42,6 +42,25 @@ class EspoCRMClient:
         except ValueError as exc:
             raise EspoCRMError(f"EspoCRM no devolvió JSON válido en {path}.") from exc
 
+    def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        url = f"{self.api_root}/{path.lstrip('/')}"
+        try:
+            response = self.session.post(url, json=body, timeout=self.timeout)
+        except requests.RequestException as exc:
+            raise EspoCRMError(f"No se pudo conectar con EspoCRM: {exc}") from exc
+
+        if response.status_code >= 400:
+            payload = response.text[:500]
+            raise EspoCRMError(
+                f"EspoCRM respondió HTTP {response.status_code} al crear "
+                f"{path}: {payload}"
+            )
+
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise EspoCRMError(f"EspoCRM no devolvió JSON válido al crear {path}.") from exc
+
     def health(self) -> dict[str, Any]:
         return self._get("App/user")
 
@@ -102,3 +121,36 @@ class EspoCRMClient:
 
     def lead_tasks(self, lead_id: str, link: str = "tasks") -> list[dict[str, Any]]:
         return self.related("Lead", lead_id, link, max_size=100)
+
+    def create_task(
+        self,
+        *,
+        name: str,
+        date_start: str | None = None,
+        date_end: str | None = None,
+        status: str = "Not Started",
+        description: str | None = None,
+        parent_type: str = "Lead",
+        parent_id: str | None = None,
+        assigned_user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Crea una tarea en EspoCRM (primera operación de escritura del cliente).
+
+        date_start/date_end se reciben en formato "YYYY-MM-DD HH:MM:SS".
+        """
+        body: dict[str, Any] = {
+            "name": name,
+            "status": status,
+            "parentType": parent_type,
+            "parentId": parent_id,
+        }
+        if date_start:
+            body["dateStart"] = date_start
+        if date_end:
+            body["dateEnd"] = date_end
+        if description:
+            body["description"] = description
+        if assigned_user_id:
+            body["assignedUserId"] = assigned_user_id
+
+        return self._post("Task", body)

@@ -1,4 +1,4 @@
-# NMDA Sales Assistant v0.4.1
+# NMDA Sales Assistant v0.4.2
 
 ## Qué cambia
 
@@ -126,13 +126,58 @@ Ollama recibe instrucciones para:
 La v0.4 todavía NO:
 
 - envía correos;
-- crea Tasks;
-- completa Tasks;
 - cambia status;
 - mueve leads a Recycled.
 
-Eso queda para una siguiente versión una vez que validemos bien los First Emails con IA.
+**Automatizado en esta versión:**
 
+- **Crear la Task del siguiente paso** (Follow-up #1 → Task "Enviar Follow-up #2"; Follow-up #2 → Task "Revisar respuesta o reciclaje") con vencimiento a **3 días hábiles** (sin contar sábados/domingos).
+
+## Nueva funcionalidad: Crear tarea del siguiente paso
+
+En el detalle de un lead con acción `Follow-up #1` o `Follow-up #2` aparece un botón:
+
+```text
+Crear tarea del siguiente paso
+```
+
+Al pulsarlo:
+
+1. Valida que la acción actual sea `FOLLOW_UP_1` o `FOLLOW_UP_2`.
+2. Calcula la fecha de vencimiento sumando 3 días hábiles (usa `FOLLOWUP_2_AFTER_DAYS` para FU1, `RECYCLE_AFTER_DAYS` para FU2).
+3. Crea la Task en EspoCRM vía API (`POST /api/v1/Task`):
+   - `name`: "Enviar Follow-up #2" o "Revisar respuesta o reciclaje".
+   - `dateStart`: ahora; `dateEnd`: vencimiento a las 18:00.
+   - `status`: "Not Started".
+   - `parentType`: "Lead", `parentId`: el lead.
+   - `assignedUserId`: opcional (`ESPOCRM_ASSIGNED_USER` en `.env`).
+4. Idempotente: si ya existe una Task abierta con el mismo nombre, la devuelve sin duplicar.
+5. Devuelve el enlace a la Task en EspoCRM.
+
+**Endpoint:** `POST /api/leads/<lead_id>/followup-task`
+
+**Configuración en `.env`:**
+
+```env
+# Usuario asignado a las tareas creadas (opcional; ID de usuario EspoCRM)
+ESPOCRM_ASSIGNED_USER=
+
+# Días hábiles para FU1 (usado al crear Task desde Follow-up #1)
+FOLLOWUP_2_AFTER_DAYS=3
+
+# Días hábiles para recycle (usado al crear Task desde Follow-up #2)
+RECYCLE_AFTER_DAYS=3
+```
+
+**Nota:** El correo se sigue enviando manualmente (copias y envías desde EspoCRM). La automatización solo crea la Task de recordatorio con el vencimiento correcto.
+
+
+## v0.4.2 — Automatización de Tasks de Follow-up
+
+- Botón "Crear tarea del siguiente paso" en el detalle del lead para `Follow-up #1` y `Follow-up #2`.
+- Crea Task en EspoCRM con vencimiento a 3 días hábiles (saltando fin de semana).
+- Idempotente: no duplica si ya existe Task abierta con el mismo nombre.
+- Configurable via `ESPOCRM_ASSIGNED_USER`, `FOLLOWUP_2_AFTER_DAYS`, `RECYCLE_AFTER_DAYS`.
 
 ## v0.4.1 — Formato y revisión del First Email
 
