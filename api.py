@@ -52,7 +52,6 @@ planner = TaskPlanner(
     followup_2_days=int(os.getenv("FOLLOWUP_2_AFTER_DAYS", "3")),
     recycle_days=int(os.getenv("RECYCLE_AFTER_DAYS", "3")),
 )
-TASK_ASSIGNED_USER = os.getenv("ESPOCRM_ASSIGNED_USER", "") or None
 
 
 def crm() -> EspoCRMClient:
@@ -281,7 +280,6 @@ def followup_task(lead_id: str):
                 "Creada por NMDA CRM Assistant."
             ),
             parent_id=lead_id,
-            assigned_user_id=TASK_ASSIGNED_USER,
         )
 
         return jsonify(
