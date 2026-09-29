@@ -14,7 +14,7 @@ function showToast(message, type = "success") {
   if (!container) {
     container = document.createElement("div");
     container.id = "toastContainer";
-    container.style.cssText = "position:fixed;top:16px;right:16px;z-index:10000;display:flex;flex-direction:column;gap:8px;pointer-events:none;";
+    container.style.cssText = "position:fixed;top:16px;right:16px;z-index:2147483647;display:flex;flex-direction:column;gap:8px;pointer-events:none;";
     document.body.appendChild(container);
   }
   const toast = document.createElement("div");
@@ -132,6 +132,7 @@ async function openDetail(id) {
   const dialog = $("detailDialog");
   $("detailContent").innerHTML = `<div class="loading">Leyendo historial…</div>`;
   dialog.showModal();
+  moveToastContainerToDialog(dialog);
 
   try {
     const res = await fetch(`/api/leads/${id}`);
@@ -310,7 +311,34 @@ function escapeHtml(value) {
 $("search").addEventListener("input", render);
 $("filter").addEventListener("change", render);
 $("refresh").addEventListener("click", load);
-$("dialogClose").addEventListener("click", () => $("detailDialog").close());
+function moveToastContainerToDialog(dialog) {
+  const container = $("toastContainer");
+  if (container && container.parentElement !== dialog) {
+    dialog.appendChild(container);
+    container.style.position = "fixed";
+    container.style.top = "16px";
+    container.style.right = "16px";
+    container.style.zIndex = "2147483647";
+  }
+}
+
+function moveToastContainerToBody() {
+  const container = $("toastContainer");
+  if (container && container.parentElement !== document.body) {
+    document.body.appendChild(container);
+    container.style.position = "fixed";
+    container.style.top = "16px";
+    container.style.right = "16px";
+    container.style.zIndex = "2147483647";
+  }
+}
+
+$("dialogClose").addEventListener("click", () => {
+  const dialog = $("detailDialog");
+  dialog.close();
+  moveToastContainerToBody();
+});
+$("detailDialog").addEventListener("close", moveToastContainerToBody);
 
 health();
 load();
