@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 from services.espocrm import EspoCRMClient, EspoCRMError
 from services.followup_service import FollowupService
@@ -231,6 +231,57 @@ def email_draft(lead_id: str):
             }
         )
     except (EspoCRMError, OllamaError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+@app.post("/api/leads/<lead_id>/email-draft")
+def create_email_draft(lead_id: str):
+    """Save the edited subject/body as an unsent EspoCRM Email draft."""
+    payload = request.get_json(silent=True) or {}
+    subject = payload.get("subject")
+    body = payload.get("body")
+    if not isinstance(subject, str) or not subject.strip():
+        return jsonify({"error": "El asunto no puede estar vacío."}), 400
+    if not isinstance(body, str) or not body.strip():
+        return jsonify({"error": "El mensaje no puede estar vacío."}), 400
+
+    try:
+        client = crm()
+        lead = client.get_lead(lead_id)
+        emails = client.lead_emails(lead_id, EMAIL_LINK)
+        decision = followups.decide(lead, emails)
+        if decision.action not in {"FIRST_EMAIL", "FOLLOW_UP_1", "FOLLOW_UP_2"}:
+            return jsonify(
+                {
+                    "error": (
+                        f"La siguiente acción es '{decision.label}'. "
+                        "Solo se guardan drafts para First Email y Follow-up #1/#2."
+                    ),
+                    "decision": decision.to_dict(),
+                }
+            ), 409
+
+        created = client.create_email_draft(
+            subject=subject.strip(),
+            body=body.strip(),
+            from_address=OUR_EMAIL,
+            to_address=str(lead.get("emailAddress") or ""),
+            parent_id=lead_id,
+        )
+        email_id = created.get("id")
+        return jsonify(
+            {
+                "created": True,
+                "email": {
+                    "id": email_id,
+                    "subject": created.get("subject") or subject.strip(),
+                    "status": created.get("status") or "Draft",
+                },
+                "recipientMissing": not bool(str(lead.get("emailAddress") or "").strip()),
+                "crmEmailUrl": f"{ESPOCRM_URL}/#Email/view/{email_id}" if email_id else None,
+            }
+        ), 201
+    except EspoCRMError as exc:
         return jsonify({"error": str(exc)}), 502
 
 

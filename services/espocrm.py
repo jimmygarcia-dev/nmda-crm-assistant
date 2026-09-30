@@ -10,7 +10,7 @@ class EspoCRMError(RuntimeError):
 
 
 class EspoCRMClient:
-    """Cliente mínimo para EspoCRM. v0.2 sigue siendo read-only."""
+    """Cliente mínimo para leer leads y crear tareas o drafts en EspoCRM."""
 
     def __init__(self, base_url: str, api_key: str, timeout: int = 20):
         self.base_url = base_url.rstrip("/")
@@ -51,10 +51,16 @@ class EspoCRMClient:
             raise EspoCRMError(f"No se pudo conectar con EspoCRM: {exc}") from exc
 
         if response.status_code >= 400:
-            payload = response.text[:500]
+            response_body = response.content[:500].decode(
+                response.encoding or "utf-8", errors="replace"
+            )
+            content_type = response.headers.get("Content-Type", "unknown")
+            content_length = response.headers.get("Content-Length", "unknown")
             raise EspoCRMError(
                 f"EspoCRM respondió HTTP {response.status_code} al crear "
-                f"{path}: {payload}"
+                f"{path} (Content-Type={content_type}, "
+                f"Content-Length={content_length}, "
+                f"bytes recibidos={len(response.content)}): {response_body!r}"
             )
 
         try:
@@ -178,3 +184,28 @@ class EspoCRMClient:
             )
 
         return self._post("Task", body)
+
+    def create_email_draft(
+        self,
+        *,
+        subject: str,
+        body: str,
+        parent_id: str,
+        from_address: str,
+        to_address: str = "",
+        parent_type: str = "Lead",
+    ) -> dict[str, Any]:
+        """Create an unsent Email draft linked to a CRM record."""
+        payload: dict[str, Any] = {
+            "subject": subject,
+            "body": body,
+            "isHtml": False,
+            "status": "Draft",
+            "from": from_address.strip(),
+            "parentType": parent_type,
+            "parentId": parent_id,
+        }
+        if to_address.strip():
+            payload["to"] = to_address.strip()
+
+        return self._post("Email", payload)

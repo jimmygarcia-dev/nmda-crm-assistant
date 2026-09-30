@@ -178,11 +178,10 @@ async function openDetail(id) {
         <textarea id="draftBody" class="draftBody"></textarea>
 
         <div class="draftActions">
-          <button class="primary" id="copyDraft">Copiar texto</button>
-          <button class="secondary" id="copySubject">Copiar asunto</button>
+          <button class="primary" id="saveCrmDraft">Generar Email Draft</button>
           ${isFirstEmail ? `<button class="secondary" id="createFirstEmailTask" hidden>Crear tarea del siguiente paso</button>` : ""}
-          <span id="copyState" class="copyState"></span>
         </div>
+        <div id="emailDraftResult" class="taskResult"></div>
         ${isFirstEmail ? `<div id="firstEmailTaskResult" class="taskResult"></div>` : ""}
       </div>
 
@@ -243,8 +242,7 @@ async function generateDraft(id, useAI = false) {
       }
     }
 
-    $("copyDraft").onclick = () => copyText($("draftBody").value, "Texto copiado");
-    $("copySubject").onclick = () => copyText($("draftSubject").value, "Asunto copiado");
+    $("saveCrmDraft").onclick = () => saveCrmEmailDraft(id);
 
     $("draftBody").focus();
     showToast(useAI ? "✅ First Email generado con IA" : "✅ Texto de seguimiento generado");
@@ -252,6 +250,45 @@ async function generateDraft(id, useAI = false) {
     showToast(`❌ ${err.message}`, "error");
     alert(err.message);
   } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
+}
+
+async function saveCrmEmailDraft(id) {
+  const button = $("saveCrmDraft");
+  const result = $("emailDraftResult");
+  if (!button || !result) return;
+
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Guardando draft en EspoCRM…";
+  result.textContent = "";
+
+  try {
+    const res = await fetch(`/api/leads/${id}/email-draft`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subject: $("draftSubject").value,
+        body: $("draftBody").value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "No se pudo crear el draft en EspoCRM");
+
+    const openLink = data.crmEmailUrl
+      ? ` · <a href="${escapeHtml(data.crmEmailUrl)}" target="_blank" rel="noreferrer">Abrir en EspoCRM ↗</a>`
+      : "";
+    const recipientNote = data.recipientMissing
+      ? " El lead no tiene email registrado; completa el destinatario en EspoCRM antes de enviarlo."
+      : "";
+    result.innerHTML = `<div class="taskResultOk">Draft guardado en EspoCRM.${recipientNote}${openLink}</div>`;
+    button.textContent = "Draft guardado";
+    showToast("✅ Email Draft creado en EspoCRM");
+  } catch (err) {
+    result.innerHTML = `<div class="errorBox">${escapeHtml(err.message)}</div>`;
+    showToast(`❌ ${err.message}`, "error");
     button.disabled = false;
     button.textContent = original;
   }
@@ -299,25 +336,6 @@ async function createFollowupTask(
   } finally {
     button.disabled = completed;
     button.textContent = finalText;
-  }
-}
-
-async function copyText(text, message) {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const area = document.createElement("textarea");
-    area.value = text;
-    document.body.appendChild(area);
-    area.select();
-    document.execCommand("copy");
-    area.remove();
-  }
-
-  const state = $("copyState");
-  if (state) {
-    state.textContent = message;
-    setTimeout(() => state.textContent = "", 1600);
   }
 }
 
