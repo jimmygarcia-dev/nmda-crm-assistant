@@ -180,8 +180,10 @@ async function openDetail(id) {
         <div class="draftActions">
           <button class="primary" id="copyDraft">Copiar texto</button>
           <button class="secondary" id="copySubject">Copiar asunto</button>
+          ${isFirstEmail ? `<button class="secondary" id="createFirstEmailTask" hidden>Crear tarea del siguiente paso</button>` : ""}
           <span id="copyState" class="copyState"></span>
         </div>
+        ${isFirstEmail ? `<div id="firstEmailTaskResult" class="taskResult"></div>` : ""}
       </div>
 
       <div class="timeline">
@@ -229,6 +231,18 @@ async function generateDraft(id, useAI = false) {
 
     $("draftBox").classList.remove("hidden");
 
+    if (useAI) {
+      const taskButton = $("createFirstEmailTask");
+      if (taskButton) {
+        taskButton.hidden = false;
+        taskButton.onclick = () => createFollowupTask(
+          id,
+          "createFirstEmailTask",
+          "firstEmailTaskResult",
+        );
+      }
+    }
+
     $("copyDraft").onclick = () => copyText($("draftBody").value, "Texto copiado");
     $("copySubject").onclick = () => copyText($("draftSubject").value, "Asunto copiado");
 
@@ -243,11 +257,17 @@ async function generateDraft(id, useAI = false) {
   }
 }
 
-async function createFollowupTask(id) {
-  const button = $("createTask");
-  const result = $("taskResult");
+async function createFollowupTask(
+  id,
+  buttonId = "createTask",
+  resultId = "taskResult",
+) {
+  const button = $(buttonId);
+  const result = $(resultId);
   if (!button || !result) return;
   const original = button.textContent;
+  let finalText = original;
+  let completed = false;
   button.disabled = true;
   button.textContent = "Creando tarea en EspoCRM…";
   result.textContent = "";
@@ -265,18 +285,20 @@ async function createFollowupTask(id) {
         <a href="${data.crmTaskUrl}" target="_blank" rel="noreferrer">Ver en EspoCRM ↗</a>
       </div>`;
       showToast(`✅ Tarea creada: ${data.task?.name} — vence ${due}`);
+      finalText = "Tarea creada";
+      completed = true;
     } else if (data.already) {
       result.innerHTML = `<div class="taskResultOk taskResultAlready">${escapeHtml(data.message || "Tarea ya existente.")}</div>`;
       showToast("ℹ️ La tarea ya existía, no se duplicó.");
+      finalText = "Tarea ya existente";
+      completed = true;
     }
-
-    openDetail(id);
   } catch (err) {
     result.innerHTML = `<div class="errorBox">${escapeHtml(err.message)}</div>`;
     showToast(`❌ ${err.message}`, "error");
   } finally {
-    button.disabled = false;
-    button.textContent = original;
+    button.disabled = completed;
+    button.textContent = finalText;
   }
 }
 

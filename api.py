@@ -51,6 +51,7 @@ first_email_ai = FirstEmailAIService(ollama)
 planner = TaskPlanner(
     followup_2_days=int(os.getenv("FOLLOWUP_2_AFTER_DAYS", "3")),
     recycle_days=int(os.getenv("RECYCLE_AFTER_DAYS", "3")),
+    followup_1_days=int(os.getenv("FOLLOWUP_1_AFTER_DAYS", "3")),
 )
 
 
@@ -236,8 +237,8 @@ def email_draft(lead_id: str):
 @app.post("/api/leads/<lead_id>/followup-task")
 def followup_task(lead_id: str):
     """
-    Crea la TAREA del siguiente paso de un Follow-up en EspoCRM (con vencimiento
-    a N días hábiles, sin contar fines de semana). No envía correos.
+    Crea la TAREA del siguiente paso en EspoCRM (con vencimiento a N días hábiles,
+    sin contar fines de semana). No envía correos.
     Idempotente: si ya existe una tarea abierta con el mismo nombre, la devuelve.
     """
     try:
@@ -247,12 +248,12 @@ def followup_task(lead_id: str):
         tasks = client.lead_tasks(lead_id, TASK_LINK)
         decision = followups.decide(lead, emails)
 
-        if decision.action not in {"FOLLOW_UP_1", "FOLLOW_UP_2"}:
+        if decision.action not in {"FIRST_EMAIL", "FOLLOW_UP_1", "FOLLOW_UP_2"}:
             return jsonify(
                 {
                     "error": (
                         f"La siguiente acción es '{decision.label}'. "
-                        "Solo creamos tareas para Follow-up #1 o #2."
+                        "Solo creamos tareas para First Email o Follow-up #1/#2."
                     ),
                     "decision": decision.to_dict(),
                 }
