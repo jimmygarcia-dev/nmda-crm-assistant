@@ -32,12 +32,12 @@ class EmailDraftService:
             raise ValueError("Solo genera Follow-up #1 o Follow-up #2.")
 
         subject = self._reply_subject(emails)
-        greeting, singular = self._greeting(lead)
+        greeting = self._greeting(lead)
 
         if action == "FOLLOW_UP_1":
-            body = self._followup_1(greeting, singular)
+            body = self._followup_1(greeting)
         else:
-            body = self._followup_2(greeting, singular)
+            body = self._followup_2(greeting)
 
         return EmailDraft(action=action, subject=subject, body=body)
 
@@ -54,51 +54,32 @@ class EmailDraftService:
 
         return f"Re: {subject}"
 
-    def _greeting(self, lead: dict[str, Any]) -> tuple[str, bool]:
+    def _greeting(self, lead: dict[str, Any]) -> str:
         first_name = str(lead.get("firstName") or "").strip()
         if first_name:
-            return f"Hola {first_name},", True
+            return f"Hola {first_name},"
+        return "Hola,"
 
-        company = (
-            str(lead.get("accountName") or "").strip()
-            or str(lead.get("cCompany") or "").strip()
-            or str(lead.get("companyName") or "").strip()
-            or str(lead.get("name") or "").strip()
-            or "su empresa"
-        )
-        return f"Hola equipo de {company},", False
-
-    def _followup_1(self, greeting: str, singular: bool) -> str:
-        shared = "te compartí" if singular else "les compartí"
-        demo = "mostrarte" if singular else "mostrarles"
-
+    def _followup_1(self, greeting: str) -> str:
         return f"""{greeting}
 
-Retomo brevemente el correo que {shared} sobre NMDA Events.
+Retomo brevemente el correo que te compartí sobre NMDA Events.
 
-Me interesa conocer cómo gestionan actualmente la parte de registro, asistentes y accesos en sus eventos, y saber si nuestra plataforma podría complementar alguno de esos procesos.
+Quería saber si actualmente gestionan el registro y seguimiento de asistentes con alguna herramienta o si lo llevan internamente.
 
-Si hace sentido, con gusto puedo {demo} una demo breve de 15–20 minutos.
-
-Quedo atento.
+Si te parece, puedo mostrarte en 15 minutos cómo estamos resolviendo esa parte en NMDA Events.
 
 Saludos,
 Jimmy García"""
 
-    def _followup_2(self, greeting: str, singular: bool) -> str:
-        shared = "te compartí" if singular else "les compartí"
-        demo = "mostrarte" if singular else "mostrarles"
-        later = "consideras" if singular else "consideran"
-
+    def _followup_2(self, greeting: str) -> str:
         return f"""{greeting}
 
-Solo retomo por última vez el correo que {shared} sobre NMDA Events.
+Solo retomo por última vez el correo anterior sobre NMDA Events.
 
-Me parecía interesante explorar si la plataforma podría complementar alguna parte de su operación de eventos, especialmente en registro, asistentes, accesos y comunicación.
+Si la gestión de asistentes y registro de eventos no es algo que estén revisando ahora, no hay problema.
 
-Si en este momento no es una prioridad, no hay problema. Si más adelante {later} que puede tener sentido revisarlo, con gusto puedo {demo} una demo breve de 15 minutos.
-
-Quedo atento.
+Si en algún momento tiene sentido conocer la plataforma, con gusto podemos conversarlo.
 
 Saludos,
 Jimmy García"""
