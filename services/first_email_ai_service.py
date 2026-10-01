@@ -76,7 +76,7 @@ class FirstEmailAIService:
         qualified = analysis.get("qualified")
 
         if not isinstance(qualified, bool):
-            raise OllamaError("Ollama debe indicar qualified como booleano.")
+            raise OllamaError("Ollama must provide qualified as a boolean.")
         if not evidence:
             qualified = False
             signal = signal or "No se encontró evidencia específica de eventos en los datos del lead."
@@ -89,7 +89,7 @@ class FirstEmailAIService:
             reason = reason or "La evidencia del lead justifica una pregunta de descubrimiento."
             relevance = relevance or "La actividad descrita puede relacionarse con la gestión de asistentes."
         if not subject:
-            raise OllamaError("Ollama no generó un asunto utilizable.")
+            raise OllamaError("Ollama did not generate a usable subject.")
         body = self._compose_safe_body(
             context, evidence, strategy,
             writing_context["mention_product"], writing_context["question"],
@@ -541,7 +541,7 @@ Devuelve exclusivamente JSON válido con este esquema:
         )
         for phrase in generic_phrases:
             if phrase in body_lower:
-                raise OllamaError(f"El borrador contiene lenguaje comercial genérico: {phrase}")
+                raise OllamaError(f"The draft contains generic sales language: {phrase}")
 
         specific_terms = (
             "gala", "galas", "congreso", "congresos", "convención", "convenciones",
@@ -552,7 +552,7 @@ Devuelve exclusivamente JSON válido con este esquema:
         unsupported = [term for term in specific_terms if term in body_lower and term not in evidence_lower]
         if unsupported:
             raise OllamaError(
-                "El borrador incluye un tipo de evento sin evidencia: " + unsupported[0]
+                "The draft includes an event type without supporting evidence: " + unsupported[0]
             )
 
     def _apply_strategy_constraints(
@@ -827,13 +827,13 @@ Devuelve exclusivamente JSON válido con este esquema:
 
     def _confidence(self, value: Any) -> float:
         if isinstance(value, bool):
-            raise OllamaError("Confidence inválido.")
+            raise OllamaError("Invalid confidence value.")
         try:
             confidence = float(value)
         except (TypeError, ValueError):
-            raise OllamaError("Confidence inválido.") from None
+            raise OllamaError("Invalid confidence value.") from None
         if not 0 <= confidence <= 1:
-            raise OllamaError("Confidence debe estar entre 0 y 1.")
+            raise OllamaError("Confidence must be between 0 and 1.")
         return confidence
 
     def _set_deterministic_greeting(self, body: str, greeting: str) -> str:

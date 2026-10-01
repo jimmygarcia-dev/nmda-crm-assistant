@@ -58,7 +58,7 @@ planner = TaskPlanner(
 def crm() -> EspoCRMClient:
     if not ESPOCRM_API_KEY:
         raise EspoCRMError(
-            "Falta ESPOCRM_API_KEY. Copia .env.example como .env y configura tu API Key."
+            "ESPOCRM_API_KEY is missing. Copy .env.example to .env and configure your API key."
         )
     return EspoCRMClient(ESPOCRM_URL, ESPOCRM_API_KEY)
 
@@ -84,7 +84,7 @@ def health():
             }
         )
     except EspoCRMError as exc:
-        return jsonify({"ok": False, "error": str(exc)}), 502
+        return jsonify({"ok": False, "crmUrl": ESPOCRM_URL, "error": str(exc)}), 502
 
 
 @app.get("/api/leads")
@@ -115,12 +115,13 @@ def leads():
             rows.append(
                 {
                     "id": lead_id,
-                    "name": lead.get("name") or lead.get("accountName") or "(Sin nombre)",
+                    "name": lead.get("name") or lead.get("accountName") or "(Unnamed lead)",
                     "company": lead.get("accountName")
                     or lead.get("cCompany")
                     or lead.get("companyName")
                     or "",
                     "email": lead.get("emailAddress") or "",
+                    "website": lead.get("cWebsite") or lead.get("website") or "",
                     "status": lead.get("status") or "",
                     "priority": lead.get("cContactpriority")
                     or lead.get("cContactPriority")
@@ -203,8 +204,8 @@ def email_draft(lead_id: str):
             return jsonify(
                 {
                     "error": (
-                        f"La siguiente acción es '{decision.label}'. "
-                        "Solo generamos borradores para First Email, Follow-up #1 o #2."
+                        f"The next action is '{decision.label}'. "
+                        "Drafts can only be generated for First Email, Follow-up #1, or Follow-up #2."
                     ),
                     "decision": decision.to_dict(),
                 }
@@ -241,9 +242,9 @@ def create_email_draft(lead_id: str):
     subject = payload.get("subject")
     body = payload.get("body")
     if not isinstance(subject, str) or not subject.strip():
-        return jsonify({"error": "El asunto no puede estar vacío."}), 400
+        return jsonify({"error": "The subject cannot be empty."}), 400
     if not isinstance(body, str) or not body.strip():
-        return jsonify({"error": "El mensaje no puede estar vacío."}), 400
+        return jsonify({"error": "The message cannot be empty."}), 400
 
     try:
         client = crm()
@@ -254,8 +255,8 @@ def create_email_draft(lead_id: str):
             return jsonify(
                 {
                     "error": (
-                        f"La siguiente acción es '{decision.label}'. "
-                        "Solo se guardan drafts para First Email y Follow-up #1/#2."
+                        f"The next action is '{decision.label}'. "
+                        "Drafts can only be saved for First Email, Follow-up #1, or Follow-up #2."
                     ),
                     "decision": decision.to_dict(),
                 }
@@ -303,8 +304,8 @@ def followup_task(lead_id: str):
             return jsonify(
                 {
                     "error": (
-                        f"La siguiente acción es '{decision.label}'. "
-                        "Solo creamos tareas para First Email o Follow-up #1/#2."
+                        f"The next action is '{decision.label}'. "
+                        "Tasks can only be created for First Email, Follow-up #1, or Follow-up #2."
                     ),
                     "decision": decision.to_dict(),
                 }

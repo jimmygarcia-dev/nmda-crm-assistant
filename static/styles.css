@@ -36,6 +36,10 @@ h1{font-size:42px;line-height:1;margin:0}
 .connection{border:1px solid var(--line);padding:9px 12px;border-radius:999px;color:var(--muted);font-size:13px}
 .connection.ok{color:var(--green);border-color:rgba(52,211,153,.35)}
 .connection.error{color:var(--red);border-color:rgba(251,113,133,.35)}
+.topbarActions{display:flex;align-items:center;gap:9px}
+.crmHomeLink{display:inline-flex;align-items:center;padding:8px 11px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:12px;text-decoration:none;transition:color .15s,border-color .15s}
+.crmHomeLink:hover{color:var(--text);border-color:#3a414f}
+.crmHomeLink[hidden]{display:none}
 main{max-width:1400px;margin:auto;padding:28px 24px 60px}
 .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
 .summary article{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px}
@@ -57,6 +61,11 @@ th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08
 tbody tr:hover{background:rgba(255,255,255,.025)}
 .leadName{font-weight:800}
 .leadEmail{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.contactStatuses{display:flex;align-items:center;gap:9px}
+.contactIcon{display:inline-flex;width:17px;height:17px;align-items:center;justify-content:center}
+.contactIcon svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.contactIcon.present{color:var(--green)}
+.contactIcon.missing{color:var(--red);opacity:.85}
 .badge{display:inline-flex;padding:5px 8px;border-radius:999px;font-weight:800;font-size:11px;border:1px solid var(--line)}
 .badge.follow1{color:var(--blue)}
 .badge.follow2{color:var(--yellow)}
@@ -123,6 +132,7 @@ dialog::backdrop{background:rgba(0,0,0,.72)}
   .summary{grid-template-columns:repeat(2,1fr)}
   .toolbar{grid-template-columns:1fr}
   .topbar{align-items:flex-start;flex-direction:column}
+  .topbarActions{flex-wrap:wrap}
   .detailGrid{grid-template-columns:1fr}
 }
 

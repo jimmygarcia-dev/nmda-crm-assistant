@@ -162,8 +162,8 @@ class FollowupService:
         if replied:
             return FollowupDecision(
                 action="REVIEW_RESPONSE",
-                label="Revisar respuesta",
-                reason="Hay un correo entrante posterior al último envío.",
+                label="Review reply",
+                reason="An incoming email was received after the last outbound email.",
                 outbound_count=len(sent),
                 inbound_count=len(received),
                 last_contact_at=_iso(last_sent_dt),
@@ -176,7 +176,7 @@ class FollowupService:
             return FollowupDecision(
                 action="FIRST_EMAIL",
                 label="First Email",
-                reason="No se detectaron correos salientes relacionados con el lead.",
+                reason="No outbound emails were found for this lead.",
                 outbound_count=0,
                 inbound_count=len(received),
                 last_contact_at=None,
@@ -190,7 +190,7 @@ class FollowupService:
             return self._dated(
                 "FOLLOW_UP_1",
                 "Follow-up #1",
-                "Se detectó First Email, pero todavía no un primer seguimiento.",
+                "A First Email was found, but no first follow-up yet.",
                 len(sent),
                 len(received),
                 last_sent_dt,
@@ -203,7 +203,7 @@ class FollowupService:
             return self._dated(
                 "FOLLOW_UP_2",
                 "Follow-up #2",
-                "Se detectaron First Email + Follow-up #1.",
+                "A First Email and Follow-up #1 were found.",
                 len(sent),
                 len(received),
                 last_sent_dt,
@@ -215,7 +215,7 @@ class FollowupService:
         return self._dated(
             "RECYCLE",
             "Recycled",
-            "Ya se detectaron 3 o más correos salientes; no conviene seguir enviando.",
+            "Three or more outbound emails were found; no further outreach is recommended.",
             len(sent),
             len(received),
             last_sent_dt,

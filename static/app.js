@@ -6,7 +6,7 @@ const fmt = value => {
   const d = new Date(value);
   return Number.isNaN(d.getTime())
     ? value
-    : new Intl.DateTimeFormat("es-MX", { dateStyle: "medium" }).format(d);
+    : new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(d);
 };
 
 function showToast(message, type = "success") {
@@ -51,31 +51,46 @@ function badge(action, label) {
   return `<span class="badge ${cls}">${label}</span>`;
 }
 
+function contactStatus(type, value) {
+  const present = Boolean(String(value || "").trim());
+  const label = type === "email" ? "Email" : "Website";
+  const icon = type === "email"
+    ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 4.5h15v11h-15zM3 5l7 5.5L17 5"/></svg>'
+    : '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M2.8 10h14.4M10 2.5c2 2.1 3 4.6 3 7.5s-1 5.4-3 7.5c-2-2.1-3-4.6-3-7.5s1-5.4 3-7.5z"/></svg>';
+  const stateLabel = present ? "available" : "missing";
+  return `<span class="contactIcon ${present ? "present" : "missing"}" role="img" aria-label="${label}: ${stateLabel}" title="${label}: ${stateLabel}">${icon}</span>`;
+}
+
 async function health() {
   const el = $("connection");
   try {
     const res = await fetch("/api/health");
     const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || "Sin conexión");
-    el.textContent = `EspoCRM conectado · ${data.ourEmail}`;
+    if (data.crmUrl) {
+      const openCrm = $("openCrm");
+      openCrm.href = data.crmUrl;
+      openCrm.hidden = false;
+    }
+    if (!res.ok || !data.ok) throw new Error(data.error || "Connection failed");
+    el.textContent = `EspoCRM connected · ${data.ourEmail}`;
     el.className = "connection ok";
   } catch (err) {
-    el.textContent = "EspoCRM sin conexión";
+    el.textContent = "EspoCRM disconnected";
     el.className = "connection error";
   }
 }
 
 async function load() {
-  $("leadRows").innerHTML = `<tr><td colspan="7" class="loading">Leyendo EspoCRM…</td></tr>`;
+  $("leadRows").innerHTML = `<tr><td colspan="8" class="loading">Loading leads from EspoCRM…</td></tr>`;
   try {
     const res = await fetch("/api/leads");
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Error leyendo leads");
+    if (!res.ok) throw new Error(data.error || "Could not load leads");
     state.leads = data.list || [];
     renderSummary();
     render();
   } catch (err) {
-    $("leadRows").innerHTML = `<tr><td colspan="7"><div class="errorBox">${escapeHtml(err.message)}</div></td></tr>`;
+    $("leadRows").innerHTML = `<tr><td colspan="8"><div class="errorBox">${escapeHtml(err.message)}</div></td></tr>`;
   }
 }
 
@@ -101,7 +116,7 @@ function render() {
   });
 
   if (!rows.length) {
-    $("leadRows").innerHTML = `<tr><td colspan="7" class="empty">No hay leads para este filtro.</td></tr>`;
+    $("leadRows").innerHTML = `<tr><td colspan="8" class="empty">No leads match this filter.</td></tr>`;
     return;
   }
 
@@ -114,10 +129,11 @@ function render() {
           <span class="leadEmail">${escapeHtml(item.email || item.company || "")}</span>
         </td>
         <td>${escapeHtml(item.status)}</td>
+        <td><div class="contactStatuses">${contactStatus("email", item.email)}${contactStatus("website", item.website)}</div></td>
         <td>${d.outbound_count}</td>
         <td>${fmt(d.last_contact_at)}</td>
         <td>${badge(d.action, d.label)}</td>
-        <td class="${d.due ? "due" : "future"}">${d.next_action_at ? fmt(d.next_action_at) : (d.due ? "Ahora" : "—")}</td>
+        <td class="${d.due ? "due" : "future"}">${d.next_action_at ? fmt(d.next_action_at) : (d.due ? "Now" : "—")}</td>
         <td><button data-id="${item.id}" class="openDetail">Ver</button></td>
       </tr>
     `;
@@ -130,14 +146,14 @@ function render() {
 
 async function openDetail(id) {
   const dialog = $("detailDialog");
-  $("detailContent").innerHTML = `<div class="loading">Leyendo historial…</div>`;
+  $("detailContent").innerHTML = `<div class="loading">Loading activity…</div>`;
   dialog.showModal();
   moveToastContainerToDialog(dialog);
 
   try {
     const res = await fetch(`/api/leads/${id}`);
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Error leyendo historial");
+    if (!res.ok) throw new Error(data.error || "Could not load activity");
 
     const lead = data.lead;
     const d = data.decision;
@@ -147,52 +163,52 @@ async function openDetail(id) {
 
     $("detailContent").innerHTML = `
       <p class="eyebrow">LEAD</p>
-      <h2>${escapeHtml(lead.name || "(Sin nombre)")}</h2>
+      <h2>${escapeHtml(lead.name || "(Unnamed lead)")}</h2>
 
       <div class="detailGrid">
         <div class="detailCard"><span>Status</span><strong>${escapeHtml(lead.status || "—")}</strong></div>
-        <div class="detailCard"><span>Emails enviados</span><strong>${d.outbound_count}</strong></div>
-        <div class="detailCard"><span>Emails recibidos</span><strong>${d.inbound_count}</strong></div>
+        <div class="detailCard"><span>Emails sent</span><strong>${d.outbound_count}</strong></div>
+        <div class="detailCard"><span>Emails received</span><strong>${d.inbound_count}</strong></div>
       </div>
 
       <div class="actionBox">
-        <small>SIGUIENTE ACCIÓN</small>
+        <small>NEXT ACTION</small>
         <h3>${escapeHtml(d.label)}</h3>
         <p>${escapeHtml(d.reason)}</p>
-        <strong>${d.next_action_at ? fmt(d.next_action_at) : (d.due ? "Ahora" : "—")}</strong>
+        <strong>${d.next_action_at ? fmt(d.next_action_at) : (d.due ? "Now" : "—")}</strong>
 
         <div class="actionButtons">
-          ${canDraft ? `<button class="primary" id="generateDraft" data-id="${lead.id}">${isFirstEmail ? "Generar First Email con IA" : "Generar texto de seguimiento"}</button>` : ""}
-          ${canTask ? `<button class="secondary" id="createTask" data-id="${lead.id}">Crear tarea del siguiente paso</button>` : ""}
-          <a class="crmLink" href="${data.crmUrl}" target="_blank" rel="noreferrer">Abrir en EspoCRM ↗</a>
+          ${canDraft ? `<button class="primary" id="generateDraft" data-id="${lead.id}">${isFirstEmail ? "Generate First Email with AI" : "Generate follow-up"}</button>` : ""}
+          ${canTask ? `<button class="secondary" id="createTask" data-id="${lead.id}">Create next-step task</button>` : ""}
+          <a class="crmLink" href="${data.crmUrl}" target="_blank" rel="noreferrer">Open in EspoCRM ↗</a>
         </div>
         <div id="taskResult" class="taskResult"></div>
       </div>
 
       <div id="draftBox" class="draftBox hidden">
         <div id="draftMeta" class="draftMeta"></div>
-        <div class="draftLabel">Asunto</div>
+        <div class="draftLabel">Subject</div>
         <input id="draftSubject" class="draftSubject" type="text">
 
-        <div class="draftLabel">Texto</div>
+        <div class="draftLabel">Message</div>
         <textarea id="draftBody" class="draftBody"></textarea>
 
         <div class="draftActions">
-          <button class="primary" id="saveCrmDraft">Generar Email Draft</button>
-          ${isFirstEmail ? `<button class="secondary" id="createFirstEmailTask" hidden>Crear tarea del siguiente paso</button>` : ""}
+          <button class="primary" id="saveCrmDraft">Create Email Draft</button>
+          ${isFirstEmail ? `<button class="secondary" id="createFirstEmailTask" hidden>Create next-step task</button>` : ""}
         </div>
         <div id="emailDraftResult" class="taskResult"></div>
         ${isFirstEmail ? `<div id="firstEmailTaskResult" class="taskResult"></div>` : ""}
       </div>
 
       <div class="timeline">
-        <h3>Emails relacionados</h3>
+        <h3>Related emails</h3>
         ${data.emails.length ? data.emails.map(e => `
           <div class="timelineItem">
-            <strong>${escapeHtml(e.subject || "(Sin asunto)")}</strong>
+            <strong>${escapeHtml(e.subject || "(No subject)")}</strong>
             <small>${escapeHtml(e.status || "")} · ${fmt(e.dateSent || e.createdAt)}</small>
           </div>
-        `).join("") : `<p class="future">No se encontraron emails relacionados.</p>`}
+        `).join("") : `<p class="future">No related emails found.</p>`}
       </div>
     `;
 
@@ -211,12 +227,12 @@ async function generateDraft(id, useAI = false) {
   const button = $("generateDraft");
   const original = button.textContent;
   button.disabled = true;
-  button.textContent = useAI ? "Generando con Ollama…" : "Generando…";
+  button.textContent = useAI ? "Generating with Ollama…" : "Generating…";
 
   try {
     const res = await fetch(`/api/leads/${id}/email-draft`);
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "No se pudo generar el borrador");
+    if (!res.ok) throw new Error(data.error || "Could not generate the draft");
 
     $("draftSubject").value = data.draft.subject || "";
     $("draftBody").value = data.draft.body || "";
@@ -224,8 +240,8 @@ async function generateDraft(id, useAI = false) {
     const meta = $("draftMeta");
     if (meta) {
       meta.textContent = data.generatedBy === "ollama"
-        ? `Generado con Ollama · ${data.model || data.draft.model || ""}`
-        : "Borrador de seguimiento";
+        ? `Generated with Ollama · ${data.model || data.draft.model || ""}`
+        : "Follow-up draft";
     }
 
     $("draftBox").classList.remove("hidden");
@@ -245,7 +261,7 @@ async function generateDraft(id, useAI = false) {
     $("saveCrmDraft").onclick = () => saveCrmEmailDraft(id);
 
     $("draftBody").focus();
-    showToast(useAI ? "✅ First Email generado con IA" : "✅ Texto de seguimiento generado");
+    showToast(useAI ? "✅ First Email generated with AI" : "✅ Follow-up generated");
   } catch (err) {
     showToast(`❌ ${err.message}`, "error");
     alert(err.message);
@@ -262,7 +278,7 @@ async function saveCrmEmailDraft(id) {
 
   const original = button.textContent;
   button.disabled = true;
-  button.textContent = "Guardando draft en EspoCRM…";
+  button.textContent = "Saving draft to EspoCRM…";
   result.textContent = "";
 
   try {
@@ -275,17 +291,17 @@ async function saveCrmEmailDraft(id) {
       }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "No se pudo crear el draft en EspoCRM");
+    if (!res.ok) throw new Error(data.error || "Could not create the draft in EspoCRM");
 
     const openLink = data.crmEmailUrl
-      ? ` · <a href="${escapeHtml(data.crmEmailUrl)}" target="_blank" rel="noreferrer">Abrir en EspoCRM ↗</a>`
+      ? ` · <a href="${escapeHtml(data.crmEmailUrl)}" target="_blank" rel="noreferrer">Open in EspoCRM ↗</a>`
       : "";
     const recipientNote = data.recipientMissing
-      ? " El lead no tiene email registrado; completa el destinatario en EspoCRM antes de enviarlo."
+      ? " This lead has no email address; add a recipient in EspoCRM before sending."
       : "";
-    result.innerHTML = `<div class="taskResultOk">Draft guardado en EspoCRM.${recipientNote}${openLink}</div>`;
-    button.textContent = "Draft guardado";
-    showToast("✅ Email Draft creado en EspoCRM");
+    result.innerHTML = `<div class="taskResultOk">Draft saved to EspoCRM.${recipientNote}${openLink}</div>`;
+    button.textContent = "Draft saved";
+    showToast("✅ Email draft created in EspoCRM");
   } catch (err) {
     result.innerHTML = `<div class="errorBox">${escapeHtml(err.message)}</div>`;
     showToast(`❌ ${err.message}`, "error");
@@ -306,28 +322,28 @@ async function createFollowupTask(
   let finalText = original;
   let completed = false;
   button.disabled = true;
-  button.textContent = "Creando tarea en EspoCRM…";
+  button.textContent = "Creating task in EspoCRM…";
   result.textContent = "";
 
   try {
     const res = await fetch(`/api/leads/${id}/followup-task`, { method: "POST" });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "No se pudo crear la tarea");
+    if (!res.ok) throw new Error(data.error || "Could not create the task");
 
     if (data.created) {
       const due = fmt(data.task?.dateEnd);
       result.innerHTML = `<div class="taskResultOk">
-        Tarea creada: <strong>${escapeHtml(data.task?.name || "")}</strong><br>
-        Vencimiento: <strong>${due}</strong> ·
-        <a href="${data.crmTaskUrl}" target="_blank" rel="noreferrer">Ver en EspoCRM ↗</a>
+        Task created: <strong>${escapeHtml(data.task?.name || "")}</strong><br>
+        Due: <strong>${due}</strong> ·
+        <a href="${data.crmTaskUrl}" target="_blank" rel="noreferrer">View in EspoCRM ↗</a>
       </div>`;
-      showToast(`✅ Tarea creada: ${data.task?.name} — vence ${due}`);
-      finalText = "Tarea creada";
+      showToast(`✅ Task created: ${data.task?.name} — due ${due}`);
+      finalText = "Task created";
       completed = true;
     } else if (data.already) {
-      result.innerHTML = `<div class="taskResultOk taskResultAlready">${escapeHtml(data.message || "Tarea ya existente.")}</div>`;
-      showToast("ℹ️ La tarea ya existía, no se duplicó.");
-      finalText = "Tarea ya existente";
+      result.innerHTML = `<div class="taskResultOk taskResultAlready">${escapeHtml(data.message || "Task already exists.")}</div>`;
+      showToast("ℹ️ Task already exists; no duplicate was created.");
+      finalText = "Task already exists";
       completed = true;
     }
   } catch (err) {

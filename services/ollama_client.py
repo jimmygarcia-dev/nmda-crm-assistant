@@ -41,26 +41,26 @@ class OllamaClient:
         try:
             response = requests.post(url, json=payload, timeout=self.timeout)
         except requests.RequestException as exc:
-            raise OllamaError(f"No se pudo conectar con Ollama: {exc}") from exc
+            raise OllamaError(f"Could not connect to Ollama: {exc}") from exc
 
         if response.status_code >= 400:
             body = response.text[:700]
             raise OllamaError(
-                f"Ollama respondió HTTP {response.status_code}: {body}"
+                f"Ollama returned HTTP {response.status_code}: {body}"
             )
 
         try:
             outer = response.json()
         except ValueError as exc:
-            raise OllamaError("Ollama no devolvió JSON válido.") from exc
+            raise OllamaError("Ollama returned invalid JSON.") from exc
 
         raw = outer.get("response")
         if not raw:
-            raise OllamaError("Ollama devolvió una respuesta vacía.")
+            raise OllamaError("Ollama returned an empty response.")
 
         parsed = self._parse_json_object(raw)
         if not isinstance(parsed, dict):
-            raise OllamaError("La respuesta de Ollama no contiene un objeto JSON.")
+            raise OllamaError("Ollama's response does not contain a JSON object.")
 
         return parsed
 
@@ -82,11 +82,11 @@ class OllamaClient:
         # Último intento: extraer el primer objeto JSON.
         match = re.search(r"\{.*\}", text, flags=re.S)
         if not match:
-            raise OllamaError("No se pudo localizar JSON en la respuesta de Ollama.")
+            raise OllamaError("Could not find JSON in Ollama's response.")
 
         try:
             return json.loads(match.group(0))
         except json.JSONDecodeError as exc:
             raise OllamaError(
-                "Ollama respondió texto, pero el JSON generado no se pudo interpretar."
+                "Ollama returned text, but the generated JSON could not be parsed."
             ) from exc

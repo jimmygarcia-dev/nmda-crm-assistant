@@ -30,25 +30,25 @@ class EspoCRMClient:
         try:
             response = self.session.get(url, params=params, timeout=self.timeout)
         except requests.RequestException as exc:
-            raise EspoCRMError(f"No se pudo conectar con EspoCRM: {exc}") from exc
+            raise EspoCRMError(f"Could not connect to EspoCRM: {exc}") from exc
 
         if response.status_code >= 400:
             body = response.text[:500]
             raise EspoCRMError(
-                f"EspoCRM respondió HTTP {response.status_code} en {path}: {body}"
+                f"EspoCRM returned HTTP {response.status_code} at {path}: {body}"
             )
 
         try:
             return response.json()
         except ValueError as exc:
-            raise EspoCRMError(f"EspoCRM no devolvió JSON válido en {path}.") from exc
+            raise EspoCRMError(f"EspoCRM returned invalid JSON at {path}.") from exc
 
     def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
         url = f"{self.api_root}/{path.lstrip('/')}"
         try:
             response = self.session.post(url, json=body, timeout=self.timeout)
         except requests.RequestException as exc:
-            raise EspoCRMError(f"No se pudo conectar con EspoCRM: {exc}") from exc
+            raise EspoCRMError(f"Could not connect to EspoCRM: {exc}") from exc
 
         if response.status_code >= 400:
             response_body = response.content[:500].decode(
@@ -57,7 +57,7 @@ class EspoCRMClient:
             content_type = response.headers.get("Content-Type", "unknown")
             content_length = response.headers.get("Content-Length", "unknown")
             raise EspoCRMError(
-                f"EspoCRM respondió HTTP {response.status_code} al crear "
+                f"EspoCRM returned HTTP {response.status_code} while creating "
                 f"{path} (Content-Type={content_type}, "
                 f"Content-Length={content_length}, "
                 f"bytes recibidos={len(response.content)}): {response_body!r}"
@@ -66,7 +66,7 @@ class EspoCRMClient:
         try:
             return response.json()
         except ValueError as exc:
-            raise EspoCRMError(f"EspoCRM no devolvió JSON válido al crear {path}.") from exc
+            raise EspoCRMError(f"EspoCRM returned invalid JSON while creating {path}.") from exc
 
     def health(self) -> dict[str, Any]:
         return self._get("App/user")
@@ -179,8 +179,8 @@ class EspoCRMClient:
             body["assignedUserId"] = resolved_user
         else:
             raise EspoCRMError(
-                "No se pudo resolver assignedUserId: provee ESPOCRM_ASSIGNED_USER "
-                "en .env o asegúrate de que /api/v1/App/user devuelva el usuario."
+                "Could not resolve assignedUserId: set ESPOCRM_ASSIGNED_USER "
+                "in .env or ensure /api/v1/App/user returns the current user."
             )
 
         return self._post("Task", body)
